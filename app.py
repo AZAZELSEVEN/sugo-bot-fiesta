@@ -1,18 +1,15 @@
 import gradio as gr
 import time
 
-# 1. CONFIGURACIÓN DE RESPUESTAS RÁPIDAS
-# Estas se usarán para limpiar la cola de 20 mensajes de ráfaga
+# 1. CONFIGURACIÓN
 RESPUESTAS_PREDETERMINADAS = [
     "jajaja epa vale, ¿cómo estás?",
     "holii, ando un poquito full pero aquí estoy jaja",
-    "epa mi loco, ¿todo bien?",
-    "vale, cuéntame más pues jaja"
+    "epa mi loco, ¿todo bien?"
 ]
 
 class SugoState:
     def __init__(self):
-        self.conteo_inicial = 5
         self.app_lanzada = False
         self.cola_mensajes = []
         self.total_atendidos = 0
@@ -20,64 +17,38 @@ class SugoState:
 state = SugoState()
 
 def procesar_sugo(mensaje_entrante):
-    # Lógica del temporizador de 5 segundos al encender
     if not state.app_lanzada:
-        while state.conteo_inicial > 0:
-            time.sleep(1)
-            state.conteo_inicial -= 1
+        time.sleep(5) # Simulación de los 5 segundos de arranque
         state.app_lanzada = True
-        return "🚀 Sugo Chat Fiesta Lanzado. Capturando notificaciones..."
+        return "🚀 Sugo Chat Fiesta Lanzado. Enviando mensajes...", 0, 0
 
-    # Lógica de la Cola (Capacidad 20)
-    if len(state.cola_mensajes) < 20:
+    if len(state.cola_mensajes) < 19: # Contamos hasta 19 para que el 20 dispare
         state.cola_mensajes.append(mensaje_entrante)
-        return f"📥 Mensaje en cola ({len(state.cola_mensajes)}/20). Esperando lote..."
-
-    # Lógica de Respuesta en Ráfaga (Al llegar a 20)
+        return f"📥 En cola: {len(state.cola_mensajes)}/20", len(state.cola_mensajes), state.total_atendidos
     else:
-        # Elegimos una respuesta rápida según el total para variar un poco
         indice = (state.total_atendidos // 20) % len(RESPUESTAS_PREDETERMINADAS)
-        respuesta_final = RESPUESTAS_PREDETERMINADAS[indice]
-        
-        state.total_atendidos += len(state.cola_mensajes)
-        state.cola_mensajes = [] # Limpiamos la cola para el siguiente lote
-        
-        return f"⚡ Lote de 20 completado. Respondiendo a todos: '{respuesta_final}'"
+        respuesta = RESPUESTAS_PREDETERMINADAS[indice]
+        state.total_atendidos += 20
+        state.cola_mensajes = []
+        return f"⚡ Lote completado. Respuesta: {respuesta}", 0, state.total_atendidos
 
-# 2. INTERFAZ TIPO DASHBOARD (Estilo Novamine)
-with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
-    gr.Markdown("# 🛸 **SUGO-FIESTA CONTROL CENTER**")
+# 2. INTERFAZ SIMPLIFICADA
+with gr.Blocks() as demo:
+    gr.Markdown("# 🛸 **SUGO-FIESTA CONTROL**")
     
     with gr.Row():
-        # Indicadores en tiempo real
-        timer_disp = gr.Number(label="Timer Arranque", value=5, interactive=False)
-        cola_disp = gr.Number(label="Mensajes en Cola", value=0, interactive=False)
-        total_disp = gr.Number(label="Total Procesados", value=0, interactive=False)
+        cola_disp = gr.Number(label="Mensajes en Cola", value=0)
+        total_disp = gr.Number(label="Total Atendidos", value=0)
 
-    with gr.Column():
-        msg_input = gr.Textbox(label="Entrada de Notificación", placeholder="Simula un mensaje de Sugo...")
-        btn_enviar = gr.Button("Enviar a la Cola")
-        output_status = gr.Textbox(label="Acción del Bot")
-
-    # Función para conectar la interfaz con la lógica
-    def trigger(m):
-        res = procesar_sugo(m)
-        return res, state.conteo_inicial, len(state.cola_mensajes), state.total_atendidos
+    msg_input = gr.Textbox(label="Mensaje de Sugo")
+    btn_enviar = gr.Button("Enviar")
+    output_status = gr.Textbox(label="Estado")
 
     btn_enviar.click(
-        trigger, 
+        procesar_sugo, 
         inputs=msg_input, 
-        outputs=[output_status, timer_disp, cola_disp, total_disp]
-    )
-
-    # Refresco automático cada segundo para el Dashboard
-    demo.load(
-        lambda: (state.conteo_inicial, len(state.cola_mensajes), state.total_atendidos),
-        None,
-        [timer_disp, cola_disp, total_disp],
-        every=1
+        outputs=[output_status, cola_disp, total_disp]
     )
 
 if __name__ == "__main__":
-    # Render necesita que el puerto sea el 10000 o el que asigne el sistema
     demo.launch(server_name="0.0.0.0", server_port=10000)
